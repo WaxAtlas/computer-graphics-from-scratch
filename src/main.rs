@@ -1,6 +1,7 @@
-use std::fs;
-use std::io;
+use std::f32::INFINITY;
+use std::fs::File;
 use std::io::Write;
+use std::ops;
 
 struct Canvas {
     height: i32,
@@ -34,8 +35,44 @@ impl Vector {
     }
 }
 
+impl ops::Add<Vector> for Vector {
+    type Output = Vector;
+
+    fn add(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl ops::Sub<Vector> for Vector {
+    type Output = Vector;
+
+    fn sub(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl ops::Mul<i32> for Vector {
+    type Output = Vector;
+
+    fn mul(self, rhs: i32) -> Self::Output {
+        Vector {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
 struct Sphere {
-    center: i32,
+    center: Vector,
     radius: i32,
     color: Color,
 }
@@ -56,9 +93,8 @@ fn canvas_to_viewport(x: i32, y: i32) -> Vector {
 }
 
 fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Vec<i32> {
-    // TODO: this is temporary to stop the LSP from complaining
-    let numbers = vec![1, 2];
-    numbers
+    let r = sphere.radius;
+    let co = origin - sphere.center;
 }
 
 fn put_pixel(x: i32, y: i32, color: Color) {
@@ -66,7 +102,7 @@ fn put_pixel(x: i32, y: i32, color: Color) {
 }
 
 fn main() {
-    let mut file = fs::File::create("image.ppm").expect("Unable to create file");
+    let mut file = File::create("image.ppm").expect("Unable to create file");
 
     for x in (-CANVAS.width / 2)..(CANVAS.width / 2) {
         for y in (-CANVAS.height / 2)..(CANVAS.height / 2) {
