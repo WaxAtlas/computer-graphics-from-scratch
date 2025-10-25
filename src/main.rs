@@ -4,34 +4,31 @@ use std::io::Write;
 use std::ops;
 
 struct Canvas {
-    height: i32,
-    width: i32,
+    height: f32,
+    width: f32,
 }
 
 impl Canvas {
-    fn new(height: i32, width: i32) -> Self {
-        Canvas {
-            height: height,
-            width: width,
-        }
+    fn new(height: f32, width: f32) -> Self {
+        Canvas { height, width }
     }
 }
 
 struct Color {
-    r: i32,
-    g: i32,
-    b: i32,
+    r: f32,
+    g: f32,
+    b: f32,
 }
 
 struct Vector {
-    x: i32,
-    y: i32,
-    z: i32,
+    x: f32,
+    y: f32,
+    z: f32,
 }
 
 impl Vector {
-    fn new(x: i32, y: i32, z: i32) -> Self {
-        Vector { x: x, y: y, z: z }
+    fn new(x: f32, y: f32, z: f32) -> Self {
+        Vector { x, y, z }
     }
 }
 
@@ -59,10 +56,10 @@ impl ops::Sub<Vector> for Vector {
     }
 }
 
-impl ops::Mul<i32> for Vector {
+impl ops::Mul<f32> for Vector {
     type Output = Vector;
 
-    fn mul(self, rhs: i32) -> Self::Output {
+    fn mul(self, rhs: f32) -> Self::Output {
         Vector {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -71,41 +68,70 @@ impl ops::Mul<i32> for Vector {
     }
 }
 
+impl ops::Div<f32> for Vector {
+    type Output = Vector;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Vector {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+fn dot(v: &Vector, w: &Vector) -> f32 {
+    v.x * w.x + v.y * w.y + v.z * w.z
+}
+
 struct Sphere {
     center: Vector,
-    radius: i32,
+    radius: f32,
     color: Color,
 }
 
 const CANVAS: Canvas = Canvas {
-    height: 600,
-    width: 600,
+    height: 600.0,
+    width: 600.0,
 };
-const PROJECTION_PLANE_Z: i32 = 1; // distance from camera to projection plane
-const VIEWPORT_SIZE: i32 = 1;
+const PROJECTION_PLANE_Z: f32 = 1.0; // distance from camera to projection plane
+const VIEWPORT_SIZE: f32 = 1.0;
 
-fn canvas_to_viewport(x: i32, y: i32) -> Vector {
+fn canvas_to_viewport(x: f32, y: f32) -> Vector {
     Vector {
-        x: VIEWPORT_SIZE / CANVAS.width,
-        y: VIEWPORT_SIZE / CANVAS.height,
+        x: x * VIEWPORT_SIZE / CANVAS.width,
+        y: y * VIEWPORT_SIZE / CANVAS.height,
         z: PROJECTION_PLANE_Z,
     }
 }
 
-fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Vec<i32> {
+fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Vec<f32> {
     let r = sphere.radius;
     let co = origin - sphere.center;
+
+    let a = dot(&direction, &direction);
+    let b = 2.0 * dot(&co, &direction);
+    let c = dot(&co, &co) - r * r;
+
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return vec![INFINITY, INFINITY];
+    } else {
+        let t1 = -b + f32::sqrt(discriminant) / 2.0 * a;
+        let t2 = -b - f32::sqrt(discriminant) / 2.0 * a;
+        return vec![t1, t2];
+    }
 }
 
-fn put_pixel(x: i32, y: i32, color: Color) {
+fn put_pixel(x: f32, y: f32, color: Color) {
     // TODO:
 }
 
 fn main() {
     let mut file = File::create("image.ppm").expect("Unable to create file");
 
-    for x in (-CANVAS.width / 2)..(CANVAS.width / 2) {
-        for y in (-CANVAS.height / 2)..(CANVAS.height / 2) {
+    for x in (-CANVAS.width / 2.0)..(CANVAS.width / 2.0) {
+        for y in (-CANVAS.height / 2.0)..(CANVAS.height / 2.0) {
             let direction = canvas_to_viewport(x, y);
 
             file.write_all(b"").expect("Unable to write data")
