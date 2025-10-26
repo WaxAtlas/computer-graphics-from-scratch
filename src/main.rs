@@ -4,12 +4,12 @@ use std::io::Write;
 use std::ops;
 
 struct Canvas {
-    height: f32,
-    width: f32,
+    height: i32,
+    width: i32,
 }
 
 impl Canvas {
-    fn new(height: f32, width: f32) -> Self {
+    fn new(height: i32, width: i32) -> Self {
         Canvas { height, width }
     }
 }
@@ -91,17 +91,17 @@ struct Sphere {
 }
 
 const CANVAS: Canvas = Canvas {
-    height: 600.0,
-    width: 600.0,
+    height: 600,
+    width: 600,
 };
-const PROJECTION_PLANE_Z: f32 = 1.0; // distance from camera to projection plane
-const VIEWPORT_SIZE: f32 = 1.0;
+const PROJECTION_PLANE_Z: i32 = 1; // distance from camera to projection plane
+const VIEWPORT_SIZE: i32 = 1;
 
-fn canvas_to_viewport(x: f32, y: f32) -> Vector {
+fn canvas_to_viewport(x: i32, y: i32) -> Vector {
     Vector {
-        x: x * VIEWPORT_SIZE / CANVAS.width,
-        y: y * VIEWPORT_SIZE / CANVAS.height,
-        z: PROJECTION_PLANE_Z,
+        x: (x * VIEWPORT_SIZE / CANVAS.width) as f32,
+        y: (y * VIEWPORT_SIZE / CANVAS.height) as f32,
+        z: (PROJECTION_PLANE_Z) as f32,
     }
 }
 
@@ -130,8 +130,8 @@ fn put_pixel(x: f32, y: f32, color: Color) {
 fn main() {
     let mut file = File::create("image.ppm").expect("Unable to create file");
 
-    for x in (-CANVAS.width / 2.0)..(CANVAS.width / 2.0) {
-        for y in (-CANVAS.height / 2.0)..(CANVAS.height / 2.0) {
+    for x in (-CANVAS.width / 2)..(CANVAS.width / 2) {
+        for y in (-CANVAS.height / 2)..(CANVAS.height / 2) {
             let direction = canvas_to_viewport(x, y);
 
             file.write_all(b"").expect("Unable to write data")
