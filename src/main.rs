@@ -150,12 +150,12 @@ fn canvas_to_viewport(x: f32, y: f32) -> Vector {
     }
 }
 
-fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: &Sphere) -> Vec<f32> {
+fn intersect_ray_sphere(origin: &Vector, direction: &Vector, sphere: &Sphere) -> Vec<f32> {
     let r = sphere.radius;
-    let co = origin - sphere.center;
+    let co = *origin - sphere.center;
 
-    let a = dot(&direction, &direction);
-    let b = 2.0 * dot(&co, &direction);
+    let a = dot(direction, direction);
+    let b = 2.0 * dot(&co, direction);
     let c = dot(&co, &co) - r * r;
 
     // println!("{:?}, {:?}, {}", co, direction, b);
@@ -173,16 +173,16 @@ fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: &Sphere) -> V
     }
 }
 
-fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Option<Color> {
+fn trace_ray(origin: &Vector, direction: &Vector, t_min: &f32, t_max: &f32) -> Option<Color> {
     let mut closest_t = f32::INFINITY;
     let mut closest_sphere = None;
 
     for sphere in SPHERES.iter() {
         let ts = intersect_ray_sphere(origin, direction, sphere);
-        if (t_min < ts[0]) && (ts[0] < t_max) && (ts[0] < closest_t) {
+        if (*t_min < ts[0]) && (ts[0] < *t_max) && (ts[0] < closest_t) {
             closest_t = ts[0];
             closest_sphere = Some(sphere);
-        } else if (t_min < ts[1]) && (ts[1] < t_max) && (ts[1] < closest_t) {
+        } else if (*t_min < ts[1]) && (ts[1] < *t_max) && (ts[1] < closest_t) {
             closest_t = ts[1];
             closest_sphere = Some(sphere);
         }
@@ -195,10 +195,10 @@ fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Optio
 }
 
 fn put_pixel(x: f32, y: f32, color: &Option<Color>, file: &mut File) {
-    let x = CANVAS.width / 2.0 + x;
-    let y = CANVAS.height / 2.0 - y - 1.0;
+    let canvas_x = CANVAS.width / 2.0 + x;
+    let canvas_y = CANVAS.height / 2.0 - y - 1.0;
 
-    if !(0.0..=CANVAS.width).contains(&x) || !(0.0..=CANVAS.height).contains(&y) {
+    if !(0.0..=CANVAS.width).contains(&canvas_x) || !(0.0..=CANVAS.height).contains(&canvas_y) {
         return;
     }
 
@@ -230,7 +230,7 @@ fn main() {
         for x in (min_width)..(max_width) {
             let direction = canvas_to_viewport(x as f32, y as f32);
             // println!("{:?}", direction);
-            let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY);
+            let color = trace_ray(&CAMERA_POSITION, &direction, &1.0, &f32::INFINITY);
 
             put_pixel(x as f32, y as f32, &color, &mut file);
         }
