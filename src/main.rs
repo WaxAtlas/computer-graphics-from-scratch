@@ -14,7 +14,7 @@ struct Color {
     b: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Debug, Default)]
 struct Vector {
     x: f32,
     y: f32,
@@ -33,10 +33,10 @@ impl ops::Add<Vector> for Vector {
     }
 }
 
-impl ops::Sub<Vector> for Vector {
+impl ops::Sub<&Vector> for &Vector {
     type Output = Vector;
 
-    fn sub(self, rhs: Vector) -> Self::Output {
+    fn sub(self, rhs: &Vector) -> Self::Output {
         Vector {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -73,7 +73,6 @@ fn dot(v: &Vector, w: &Vector) -> f32 {
     v.x * w.x + v.y * w.y + v.z * w.z
 }
 
-#[derive(Clone)]
 struct Sphere {
     center: Vector,
     radius: f32,
@@ -152,7 +151,7 @@ fn canvas_to_viewport(x: f32, y: f32) -> Vector {
 
 fn intersect_ray_sphere(origin: &Vector, direction: &Vector, sphere: &Sphere) -> Vec<f32> {
     let r = sphere.radius;
-    let co = *origin - sphere.center;
+    let co = origin - &sphere.center;
 
     let a = dot(direction, direction);
     let b = 2.0 * dot(&co, direction);
