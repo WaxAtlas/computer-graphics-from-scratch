@@ -9,7 +9,7 @@ pub struct Canvas {
 pub struct Light {
     pub light_type: LightType,
     pub intensity: f32,
-    pub light_position_or_direction: Option<Vector>,
+    pub light_position: Option<Vector>,
 }
 
 #[derive(PartialEq, Eq)]

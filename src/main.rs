@@ -40,12 +40,12 @@ const LIGHTS: [Light; 3] = [
     Light {
         light_type: LightType::Ambient,
         intensity: 0.2,
-        light_position_or_direction: None,
+        light_position: None,
     },
     Light {
         light_type: LightType::Point,
         intensity: 0.6,
-        light_position_or_direction: Some(Vector {
+        light_position: Some(Vector {
             x: 2.0,
             y: 1.0,
             z: 0.0,
@@ -54,7 +54,7 @@ const LIGHTS: [Light; 3] = [
     Light {
         light_type: LightType::Directional,
         intensity: 0.2,
-        light_position_or_direction: Some(Vector {
+        light_position: Some(Vector {
             x: 1.0,
             y: 4.0,
             z: 4.0,
@@ -147,19 +147,20 @@ fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Ve
 fn compute_lighting(point: Vector, normal: Vector) -> f32 {
     let mut intensity = 0.0;
     let mut light_vector;
+
     for light in LIGHTS.iter() {
         if light.light_type == LightType::Ambient {
             intensity += light.intensity;
         } else {
-            let light_position_or_direction = light.light_position_or_direction.unwrap();
+            let light_position = light.light_position.unwrap();
 
             if light.light_type == LightType::Point {
-                light_vector = light_position_or_direction - point;
+                light_vector = light_position - point;
             } else {
-                light_vector = light_position_or_direction;
+                light_vector = light_position;
             }
 
-            let n_dot_1 = dot(light_vector, normal);
+            let n_dot_1 = dot(normal, light_vector);
             if n_dot_1 > 0.0 {
                 intensity += light.intensity * n_dot_1 / (normal.length() * light_vector.length());
             }
@@ -177,21 +178,23 @@ fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Optio
         if (t_min < ts[0]) && (ts[0] < t_max) && (ts[0] < closest_t) {
             closest_t = ts[0];
             closest_sphere = Some(sphere);
-        } else if (t_min < ts[1]) && (ts[1] < t_max) && (ts[1] < closest_t) {
+        }
+        // NOTE: this was an 'else if' and that messed with lighting and put some spheres in front of others
+        if (t_min < ts[1]) && (ts[1] < t_max) && (ts[1] < closest_t) {
             closest_t = ts[1];
             closest_sphere = Some(sphere);
         }
     }
 
-    let point = origin + direction * closest_t;
     closest_sphere.map(|i| {
+        let point = origin + closest_t * direction;
         let mut normal = point - i.center;
         normal = normal / normal.length();
         i.color * compute_lighting(point, normal)
     })
 }
 
-fn put_pixel(x: f32, y: f32, color: &Option<Color>, file: &mut File) {
+fn put_pixel(x: f32, y: f32, color: Option<Color>, file: &mut File) {
     let canvas_x = CANVAS.width / 2.0 + x;
     let canvas_y = CANVAS.height / 2.0 - y - 1.0;
 
@@ -206,9 +209,9 @@ fn put_pixel(x: f32, y: f32, color: &Option<Color>, file: &mut File) {
             BACKGROUND_COLOR.r, BACKGROUND_COLOR.g, BACKGROUND_COLOR.b
         )
         .expect("Error writing background color to file."),
-        Some(i) => {
-            writeln!(file, "{}, {}, {}", i.r, i.g, i.b).expect("Error writing color to file.")
-        }
+        // .ppm format expects integers
+        Some(i) => writeln!(file, "{}, {}, {}", i.r as i32, i.g as i32, i.b as i32)
+            .expect("Error writing color to file."),
     };
 }
 
@@ -228,7 +231,7 @@ fn main() {
             let direction = canvas_to_viewport(x as f32, y as f32);
             let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY);
 
-            put_pixel(x as f32, y as f32, &color, &mut file);
+            put_pixel(x as f32, y as f32, color, &mut file);
         }
     }
 }

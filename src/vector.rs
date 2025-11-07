@@ -43,6 +43,18 @@ impl ops::Mul<f32> for Vector {
     }
 }
 
+impl ops::Mul<Vector> for f32 {
+    type Output = Vector;
+
+    fn mul(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: rhs.x * self,
+            y: rhs.y * self,
+            z: rhs.z * self,
+        }
+    }
+}
+
 impl ops::Div<f32> for Vector {
     type Output = Vector;
 
@@ -57,7 +69,7 @@ impl ops::Div<f32> for Vector {
 
 impl Vector {
     pub fn length(&self) -> f32 {
-        f32::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+        f32::sqrt(dot(*self, *self))
     }
 }
 
