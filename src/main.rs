@@ -1,83 +1,22 @@
 use std::fs::File;
 use std::io::Write;
-use std::ops;
 
-struct Canvas {
-    height: f32,
-    width: f32,
-}
+// my mods
+mod structs;
 
-#[derive(Clone, Copy, Debug, Default)]
-struct Color {
-    r: f32,
-    g: f32,
-    b: f32,
-}
+use structs::Canvas;
+use structs::Light;
+use structs::LightType;
+use structs::Sphere;
 
-#[derive(Debug, Default)]
-struct Vector {
-    x: f32,
-    y: f32,
-    z: f32,
-}
+mod color;
 
-impl ops::Add<Vector> for Vector {
-    type Output = Vector;
+use color::Color;
 
-    fn add(self, rhs: Vector) -> Self::Output {
-        Vector {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-        }
-    }
-}
+mod vector;
 
-impl ops::Sub<&Vector> for &Vector {
-    type Output = Vector;
-
-    fn sub(self, rhs: &Vector) -> Self::Output {
-        Vector {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            z: self.z - rhs.z,
-        }
-    }
-}
-
-impl ops::Mul<f32> for Vector {
-    type Output = Vector;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Vector {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            z: self.z * rhs,
-        }
-    }
-}
-
-impl ops::Div<f32> for Vector {
-    type Output = Vector;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Vector {
-            x: self.x / rhs,
-            y: self.y / rhs,
-            z: self.z / rhs,
-        }
-    }
-}
-
-fn dot(v: &Vector, w: &Vector) -> f32 {
-    v.x * w.x + v.y * w.y + v.z * w.z
-}
-
-struct Sphere {
-    center: Vector,
-    radius: f32,
-    color: Color,
-}
+use vector::Vector;
+use vector::dot;
 
 // globals
 
@@ -97,7 +36,32 @@ const CAMERA_POSITION: Vector = Vector {
 };
 const PROJECTION_PLANE_Z: f32 = 1.0; // distance from camera to projection plane
 const VIEWPORT_SIZE: f32 = 1.0;
-const SPHERES: [Sphere; 3] = [
+const LIGHTS: [Light; 3] = [
+    Light {
+        light_type: LightType::Ambient,
+        intensity: 0.2,
+        light_position_or_direction: None,
+    },
+    Light {
+        light_type: LightType::Point,
+        intensity: 0.6,
+        light_position_or_direction: Some(Vector {
+            x: 2.0,
+            y: 1.0,
+            z: 0.0,
+        }),
+    },
+    Light {
+        light_type: LightType::Directional,
+        intensity: 0.2,
+        light_position_or_direction: Some(Vector {
+            x: 1.0,
+            y: 4.0,
+            z: 4.0,
+        }),
+    },
+];
+const SPHERES: [Sphere; 4] = [
     Sphere {
         center: Vector {
             x: 0.0,
@@ -137,10 +101,23 @@ const SPHERES: [Sphere; 3] = [
             b: 255.0,
         },
     },
+    Sphere {
+        center: Vector {
+            x: 0.0,
+            y: -5001.0,
+            z: 0.0,
+        },
+        radius: 5000.0,
+        color: Color {
+            r: 255.0,
+            g: 255.0,
+            b: 0.0,
+        },
+    },
 ];
 
 fn canvas_to_viewport(x: f32, y: f32) -> Vector {
-    // I am not sure why I need to invert the y axis
+    // I am not sure why I need to invert the y axis - maybe something to do with .ppm
     // NOTE: Consider removing inversion later if another output format corrects it
     Vector {
         x: (x * VIEWPORT_SIZE / CANVAS.width),
@@ -149,47 +126,68 @@ fn canvas_to_viewport(x: f32, y: f32) -> Vector {
     }
 }
 
-fn intersect_ray_sphere(origin: &Vector, direction: &Vector, sphere: &Sphere) -> Vec<f32> {
+fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Vec<f32> {
     let r = sphere.radius;
-    let co = origin - &sphere.center;
+    let co = origin - sphere.center;
 
     let a = dot(direction, direction);
-    let b = 2.0 * dot(&co, direction);
-    let c = dot(&co, &co) - r * r;
-
-    // println!("{:?}, {:?}, {}", co, direction, b);
-    // println!("{}, {}, {}", a, b, c);
+    let b = 2.0 * dot(co, direction);
+    let c = dot(co, co) - r * r;
 
     let discriminant = b * b - 4.0 * a * c;
     if discriminant < 0.0 {
-        // println!("discriminant < 0");
         vec![f32::INFINITY, f32::INFINITY]
     } else {
         let t1 = (-b + f32::sqrt(discriminant)) / (2.0 * a);
         let t2 = (-b - f32::sqrt(discriminant)) / (2.0 * a);
-        // println!("{}, {}", t1, t2);
         vec![t1, t2]
     }
 }
 
-fn trace_ray(origin: &Vector, direction: &Vector, t_min: &f32, t_max: &f32) -> Option<Color> {
+fn compute_lighting(point: Vector, normal: Vector) -> f32 {
+    let mut intensity = 0.0;
+    let mut light_vector;
+    for light in LIGHTS.iter() {
+        if light.light_type == LightType::Ambient {
+            intensity += light.intensity;
+        } else {
+            let light_position_or_direction = light.light_position_or_direction.unwrap();
+
+            if light.light_type == LightType::Point {
+                light_vector = light_position_or_direction - point;
+            } else {
+                light_vector = light_position_or_direction;
+            }
+
+            let n_dot_1 = dot(light_vector, normal);
+            if n_dot_1 > 0.0 {
+                intensity += light.intensity * n_dot_1 / (normal.length() * light_vector.length());
+            }
+        }
+    }
+    intensity
+}
+
+fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Option<Color> {
     let mut closest_t = f32::INFINITY;
     let mut closest_sphere = None;
 
     for sphere in SPHERES.iter() {
-        let ts = intersect_ray_sphere(origin, direction, sphere);
-        if (*t_min < ts[0]) && (ts[0] < *t_max) && (ts[0] < closest_t) {
+        let ts = intersect_ray_sphere(origin, direction, *sphere);
+        if (t_min < ts[0]) && (ts[0] < t_max) && (ts[0] < closest_t) {
             closest_t = ts[0];
             closest_sphere = Some(sphere);
-        } else if (*t_min < ts[1]) && (ts[1] < *t_max) && (ts[1] < closest_t) {
+        } else if (t_min < ts[1]) && (ts[1] < t_max) && (ts[1] < closest_t) {
             closest_t = ts[1];
             closest_sphere = Some(sphere);
         }
     }
 
+    let point = origin + direction * closest_t;
     closest_sphere.map(|i| {
-        // println!("{:?}", i.color);
-        i.color
+        let mut normal = point - i.center;
+        normal = normal / normal.length();
+        i.color * compute_lighting(point, normal)
     })
 }
 
@@ -228,8 +226,7 @@ fn main() {
     for y in (min_height)..(max_height) {
         for x in (min_width)..(max_width) {
             let direction = canvas_to_viewport(x as f32, y as f32);
-            // println!("{:?}", direction);
-            let color = trace_ray(&CAMERA_POSITION, &direction, &1.0, &f32::INFINITY);
+            let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY);
 
             put_pixel(x as f32, y as f32, &color, &mut file);
         }
