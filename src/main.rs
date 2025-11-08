@@ -74,6 +74,7 @@ const SPHERES: [Sphere; 4] = [
             g: 0.0,
             b: 0.0,
         },
+        specular: 500.0,
     },
     Sphere {
         center: Vector {
@@ -87,6 +88,7 @@ const SPHERES: [Sphere; 4] = [
             g: 255.0,
             b: 0.0,
         },
+        specular: 10.0,
     },
     Sphere {
         center: Vector {
@@ -100,6 +102,7 @@ const SPHERES: [Sphere; 4] = [
             g: 0.0,
             b: 255.0,
         },
+        specular: 500.0,
     },
     Sphere {
         center: Vector {
@@ -113,6 +116,7 @@ const SPHERES: [Sphere; 4] = [
             g: 255.0,
             b: 0.0,
         },
+        specular: 1000.0,
     },
 ];
 
@@ -144,7 +148,7 @@ fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Ve
     }
 }
 
-fn compute_lighting(point: Vector, normal: Vector) -> f32 {
+fn compute_lighting(point: Vector, normal: Vector, view_direction: Vector, specular: f32) -> f32 {
     let mut intensity = 0.0;
     let mut light_vector;
 
@@ -160,16 +164,30 @@ fn compute_lighting(point: Vector, normal: Vector) -> f32 {
                 light_vector = light_position;
             }
 
+            // diffuse
             let n_dot_1 = dot(normal, light_vector);
             if n_dot_1 > 0.0 {
                 intensity += light.intensity * n_dot_1 / (normal.length() * light_vector.length());
+            }
+
+            // specular
+            if specular != -1.0 {
+                let reflection_vector = 2.0 * normal * dot(normal, light_vector) - light_vector;
+                let r_dot_v = dot(reflection_vector, view_direction);
+                if r_dot_v > 0.0 {
+                    intensity += light.intensity
+                        * f32::powf(
+                            r_dot_v / (reflection_vector.length() * view_direction.length()),
+                            specular,
+                        );
+                }
             }
         }
     }
     intensity
 }
 
-fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Option<Color> {
+fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Color {
     let mut closest_t = f32::INFINITY;
     let mut closest_sphere = None;
 
@@ -186,15 +204,18 @@ fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Optio
         }
     }
 
-    closest_sphere.map(|i| {
-        let point = origin + closest_t * direction;
-        let mut normal = point - i.center;
-        normal = normal / normal.length();
-        i.color * compute_lighting(point, normal)
-    })
+    match closest_sphere {
+        None => BACKGROUND_COLOR,
+        Some(i) => {
+            let point = origin + closest_t * direction;
+            let mut normal = point - i.center;
+            normal = normal / normal.length();
+            i.color * compute_lighting(point, normal, -direction, i.specular)
+        }
+    }
 }
 
-fn put_pixel(x: f32, y: f32, color: Option<Color>, file: &mut File) {
+fn put_pixel(x: f32, y: f32, color: Color, file: &mut File) {
     let canvas_x = CANVAS.width / 2.0 + x;
     let canvas_y = CANVAS.height / 2.0 - y - 1.0;
 
@@ -202,17 +223,12 @@ fn put_pixel(x: f32, y: f32, color: Option<Color>, file: &mut File) {
         return;
     }
 
-    match color {
-        None => writeln!(
-            file,
-            "{}, {}, {}",
-            BACKGROUND_COLOR.r, BACKGROUND_COLOR.g, BACKGROUND_COLOR.b
-        )
-        .expect("Error writing background color to file."),
-        // .ppm format expects integers
-        Some(i) => writeln!(file, "{}, {}, {}", i.r as i32, i.g as i32, i.b as i32)
-            .expect("Error writing color to file."),
-    };
+    writeln!(
+        file,
+        "{}, {}, {}",
+        color.r as i32, color.g as i32, color.b as i32
+    )
+    .expect("Error writing color to file.");
 }
 
 fn main() {

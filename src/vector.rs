@@ -7,6 +7,18 @@ pub struct Vector {
     pub z: f32,
 }
 
+impl ops::Neg for Vector {
+    type Output = Vector;
+
+    fn neg(self) -> Self::Output {
+        Vector {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
 impl ops::Add<Vector> for Vector {
     type Output = Vector;
 

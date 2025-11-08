@@ -24,4 +24,5 @@ pub struct Sphere {
     pub center: Vector,
     pub radius: f32,
     pub color: Color,
+    pub specular: f32,
 }
