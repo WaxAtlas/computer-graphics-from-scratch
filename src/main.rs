@@ -21,9 +21,9 @@ use vector::dot;
 // globals
 
 const BACKGROUND_COLOR: Color = Color {
-    r: 255.0,
-    g: 255.0,
-    b: 255.0,
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
 };
 const CANVAS: Canvas = Canvas {
     height: 600.0,
@@ -34,6 +34,7 @@ const CAMERA_POSITION: Vector = Vector {
     y: 0.0,
     z: 0.0,
 };
+const EPSILON: f32 = 0.001;
 const PROJECTION_PLANE_Z: f32 = 1.0; // distance from camera to projection plane
 const VIEWPORT_SIZE: f32 = 1.0;
 const LIGHTS: [Light; 3] = [
@@ -75,6 +76,7 @@ const SPHERES: [Sphere; 4] = [
             b: 0.0,
         },
         specular: 500.0,
+        reflective: 0.2,
     },
     Sphere {
         center: Vector {
@@ -89,6 +91,7 @@ const SPHERES: [Sphere; 4] = [
             b: 0.0,
         },
         specular: 10.0,
+        reflective: 0.4,
     },
     Sphere {
         center: Vector {
@@ -103,6 +106,7 @@ const SPHERES: [Sphere; 4] = [
             b: 255.0,
         },
         specular: 500.0,
+        reflective: 0.3,
     },
     Sphere {
         center: Vector {
@@ -117,6 +121,7 @@ const SPHERES: [Sphere; 4] = [
             b: 0.0,
         },
         specular: 1000.0,
+        reflective: 0.5,
     },
 ];
 
@@ -151,6 +156,7 @@ fn intersect_ray_sphere(origin: Vector, direction: Vector, sphere: Sphere) -> Ve
 fn compute_lighting(point: Vector, normal: Vector, view_direction: Vector, specular: f32) -> f32 {
     let mut intensity = 0.0;
     let mut light_vector;
+    let mut t_max;
 
     for light in LIGHTS.iter() {
         if light.light_type == LightType::Ambient {
@@ -160,34 +166,52 @@ fn compute_lighting(point: Vector, normal: Vector, view_direction: Vector, specu
 
             if light.light_type == LightType::Point {
                 light_vector = light_position - point;
+                t_max = 1.0;
             } else {
                 light_vector = light_position;
+                t_max = f32::INFINITY;
             }
 
-            // diffuse
-            let n_dot_1 = dot(normal, light_vector);
-            if n_dot_1 > 0.0 {
-                intensity += light.intensity * n_dot_1 / (normal.length() * light_vector.length());
-            }
+            // shadow
+            let (shadow_sphere, _) = closest_intersection(point, light_vector, EPSILON, t_max);
 
-            // specular
-            if specular != -1.0 {
-                let reflection_vector = 2.0 * normal * dot(normal, light_vector) - light_vector;
-                let r_dot_v = dot(reflection_vector, view_direction);
-                if r_dot_v > 0.0 {
-                    intensity += light.intensity
-                        * f32::powf(
-                            r_dot_v / (reflection_vector.length() * view_direction.length()),
-                            specular,
-                        );
+            match shadow_sphere {
+                None => {
+                    // diffuse
+                    let n_dot_1 = dot(normal, light_vector);
+                    if n_dot_1 > 0.0 {
+                        intensity +=
+                            light.intensity * n_dot_1 / (normal.length() * light_vector.length());
+                    }
+
+                    // specular
+                    if specular != -1.0 {
+                        let reflection_vector =
+                            2.0 * normal * dot(normal, light_vector) - light_vector;
+                        let r_dot_v = dot(reflection_vector, view_direction);
+                        if r_dot_v > 0.0 {
+                            intensity += light.intensity
+                                * f32::powf(
+                                    r_dot_v
+                                        / (reflection_vector.length() * view_direction.length()),
+                                    specular,
+                                );
+                        }
+                    }
                 }
+                Some(_) => continue,
             }
         }
     }
     intensity
 }
 
-fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Color {
+fn closest_intersection(
+    origin: Vector,
+    direction: Vector,
+    t_min: f32,
+    t_max: f32,
+) -> (Option<Sphere>, f32) {
     let mut closest_t = f32::INFINITY;
     let mut closest_sphere = None;
 
@@ -203,6 +227,21 @@ fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Color
             closest_sphere = Some(sphere);
         }
     }
+    (closest_sphere.copied(), closest_t)
+}
+
+fn reflect_ray(ray: Vector, normal: Vector) -> Vector {
+    2.0 * normal * dot(normal, ray) - ray
+}
+
+fn trace_ray(
+    origin: Vector,
+    direction: Vector,
+    t_min: f32,
+    t_max: f32,
+    recursion_depth: i32,
+) -> Color {
+    let (closest_sphere, closest_t) = closest_intersection(origin, direction, t_min, t_max);
 
     match closest_sphere {
         None => BACKGROUND_COLOR,
@@ -210,7 +249,23 @@ fn trace_ray(origin: Vector, direction: Vector, t_min: f32, t_max: f32) -> Color
             let point = origin + closest_t * direction;
             let mut normal = point - i.center;
             normal = normal / normal.length();
-            i.color * compute_lighting(point, normal, -direction, i.specular)
+            let local_color = i.color * compute_lighting(point, normal, -direction, i.specular);
+
+            let reflectivity = i.reflective;
+            if recursion_depth <= 0 || reflectivity <= 0.0 {
+                return local_color;
+            }
+
+            let reflected_ray = reflect_ray(-direction, normal);
+            let reflected_color = trace_ray(
+                point,
+                reflected_ray,
+                EPSILON * 100.0,
+                f32::INFINITY,
+                recursion_depth - 1,
+            );
+
+            local_color * (1.0 - reflectivity) + reflected_color * reflectivity
         }
     }
 }
@@ -245,7 +300,7 @@ fn main() {
     for y in (min_height)..(max_height) {
         for x in (min_width)..(max_width) {
             let direction = canvas_to_viewport(x as f32, y as f32);
-            let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY);
+            let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY, 3);
 
             put_pixel(x as f32, y as f32, color, &mut file);
         }

@@ -7,6 +7,18 @@ pub struct Color {
     pub b: f32,
 }
 
+impl ops::Add<Color> for Color {
+    type Output = Color;
+
+    fn add(self, rhs: Color) -> Self::Output {
+        Color {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+        }
+    }
+}
+
 impl ops::Mul<f32> for Color {
     type Output = Color;
 

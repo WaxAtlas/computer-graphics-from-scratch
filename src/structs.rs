@@ -25,4 +25,5 @@ pub struct Sphere {
     pub radius: f32,
     pub color: Color,
     pub specular: f32,
+    pub reflective: f32,
 }
