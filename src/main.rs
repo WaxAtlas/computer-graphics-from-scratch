@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Write;
-
 // my mods
 mod structs;
 
@@ -270,39 +267,18 @@ fn trace_ray(
     }
 }
 
-fn put_pixel(x: f32, y: f32, color: Color, file: &mut File) {
-    let canvas_x = CANVAS.width / 2.0 + x;
-    let canvas_y = CANVAS.height / 2.0 - y - 1.0;
-
-    if !(0.0..=CANVAS.width).contains(&canvas_x) || !(0.0..=CANVAS.height).contains(&canvas_y) {
-        return;
-    }
-
-    writeln!(
-        file,
-        "{}, {}, {}",
-        color.r as i32, color.g as i32, color.b as i32
-    )
-    .expect("Error writing color to file.");
-}
-
 fn main() {
-    let mut file = File::create("image.ppm").expect("Unable to create file");
+    let mut imgbuf: image::ImageBuffer<image::Rgb<u8>, _> =
+        image::ImageBuffer::new(CANVAS.width as u32, CANVAS.height as u32);
 
-    writeln!(file, "P3\n{} {}\n255", CANVAS.width, CANVAS.height)
-        .expect("Error writing header to file.");
+    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+        let view_x = x as f32 - CANVAS.width / 2.0;
+        let view_y = y as f32 - CANVAS.width / 2.0;
+        let direction = canvas_to_viewport(view_x, view_y);
+        let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY, 3);
 
-    let min_width = -(CANVAS.width / 2.0) as i32;
-    let max_width = (CANVAS.width / 2.0) as i32;
-    let min_height = -(CANVAS.height / 2.0) as i32;
-    let max_height = (CANVAS.height / 2.0) as i32;
-
-    for y in (min_height)..(max_height) {
-        for x in (min_width)..(max_width) {
-            let direction = canvas_to_viewport(x as f32, y as f32);
-            let color = trace_ray(CAMERA_POSITION, direction, 1.0, f32::INFINITY, 3);
-
-            put_pixel(x as f32, y as f32, color, &mut file);
-        }
+        *pixel = image::Rgb([color.r as u8, color.g as u8, color.b as u8]);
     }
+
+    imgbuf.save("image.png").expect("Image failed to save.");
 }
