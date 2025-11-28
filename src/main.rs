@@ -1,8 +1,14 @@
 // my mods
+mod scene;
+use scene::BACKGROUND_COLOR;
+use scene::CAMERA_POSITION;
+use scene::CANVAS;
+use scene::LIGHTS;
+use scene::SPHERES;
+
 mod structs;
 
 use structs::Canvas;
-use structs::Light;
 use structs::LightType;
 use structs::Sphere;
 
@@ -17,110 +23,9 @@ use vector::dot;
 
 // globals
 
-const BACKGROUND_COLOR: Color = Color {
-    r: 0.0,
-    g: 0.0,
-    b: 0.0,
-};
-const CANVAS: Canvas = Canvas {
-    height: 600.0,
-    width: 600.0,
-};
-const CAMERA_POSITION: Vector = Vector {
-    x: 0.0,
-    y: 0.0,
-    z: 0.0,
-};
 const EPSILON: f32 = 0.001;
 const PROJECTION_PLANE_Z: f32 = 1.0; // distance from camera to projection plane
 const VIEWPORT_SIZE: f32 = 1.0;
-const LIGHTS: [Light; 3] = [
-    Light {
-        light_type: LightType::Ambient,
-        intensity: 0.2,
-        light_position: None,
-    },
-    Light {
-        light_type: LightType::Point,
-        intensity: 0.6,
-        light_position: Some(Vector {
-            x: 2.0,
-            y: 1.0,
-            z: 0.0,
-        }),
-    },
-    Light {
-        light_type: LightType::Directional,
-        intensity: 0.2,
-        light_position: Some(Vector {
-            x: 1.0,
-            y: 4.0,
-            z: 4.0,
-        }),
-    },
-];
-const SPHERES: [Sphere; 4] = [
-    Sphere {
-        center: Vector {
-            x: 0.0,
-            y: -1.0,
-            z: 3.0,
-        },
-        radius: 1.0,
-        color: Color {
-            r: 255.0,
-            g: 0.0,
-            b: 0.0,
-        },
-        specular: 500.0,
-        reflective: 0.2,
-    },
-    Sphere {
-        center: Vector {
-            x: -2.0,
-            y: 0.0,
-            z: 4.0,
-        },
-        radius: 1.0,
-        color: Color {
-            r: 0.0,
-            g: 255.0,
-            b: 0.0,
-        },
-        specular: 10.0,
-        reflective: 0.4,
-    },
-    Sphere {
-        center: Vector {
-            x: 2.0,
-            y: 0.0,
-            z: 4.0,
-        },
-        radius: 1.0,
-        color: Color {
-            r: 0.0,
-            g: 0.0,
-            b: 255.0,
-        },
-        specular: 500.0,
-        reflective: 0.3,
-    },
-    Sphere {
-        center: Vector {
-            x: 0.0,
-            y: -5001.0,
-            z: 0.0,
-        },
-        radius: 5000.0,
-        color: Color {
-            r: 255.0,
-            g: 255.0,
-            b: 0.0,
-        },
-        specular: 1000.0,
-        reflective: 0.5,
-    },
-];
 
 fn canvas_to_viewport(x: f32, y: f32) -> Vector {
     // I am not sure why I need to invert the y axis - maybe something to do with .ppm
